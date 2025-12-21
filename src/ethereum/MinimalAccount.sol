@@ -19,7 +19,7 @@ import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint
  * @dev Bundlers are the nodes that run and maintain the alternative (AA) mempool and are capable of submitting
  * bundled UserOperations to Ethereum.
  * @dev Mental Model:
- *      User signs UserOperation
+ *      User signs UserOperation (Offchain)
  *              ↓
  *      Bundler pays gas upfront
  *              ↓
