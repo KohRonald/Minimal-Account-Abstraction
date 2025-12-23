@@ -16,6 +16,7 @@ contract HelperConfig is Script {
     uint256 constant ZKSYNC_SEPOLIA_CHAIN_ID = 300;
     uint256 constant LOCAL_CHAIN_ID = 31337;
     address constant BURNER_WALLET = 0x8C1074Aa2Bb05D632d5C5276b7ea2C21e4975aE6; //TestNet metamask wallet
+    address constant FOUNDRY_DEFAULT_WALLET = 0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38; //Default address used in forge, found in Base.sol
 
     NetworkConfig public localNetworkConfig;
 
@@ -31,7 +32,7 @@ contract HelperConfig is Script {
 
     function getConfigByChainId(uint256 chainid) public returns (NetworkConfig memory) {
         if (chainid == LOCAL_CHAIN_ID) {
-            getOrCreateAnvilEthConfig();
+            return getOrCreateAnvilEthConfig();
         } else if (networkConfigs[chainid].account != address(0)) {
             return networkConfigs[chainid];
         } else {
@@ -54,6 +55,8 @@ contract HelperConfig is Script {
             return localNetworkConfig;
         }
 
-        //Deploy mock entrypoint contract
+        //Deploy mock entrypoint contract....
+
+        return NetworkConfig({entryPoint: address(0), account: FOUNDRY_DEFAULT_WALLET});
     }
 }
