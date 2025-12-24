@@ -6,11 +6,17 @@ import {MinimalAccount} from "src/ethereum/MinimalAccount.sol";
 import {DeployMinimal} from "script/DeployMinimal.s.sol";
 import {HelperConfig} from "script/HelperConfig.s.sol";
 import {ERC20Mock} from "@openzeppelin-contracts/contracts/mocks/token/ERC20Mock.sol";
+import {SendPackedUserOps, PackedUserOperation, IEntryPoint} from "script/SendPackedUserOp.s.sol";
+import {ECDSA} from "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
+import {MessageHashUtils} from "@openzeppelin-contracts/contracts/utils/cryptography/MessageHashUtils.sol";
 
 contract MinimalAccountTest is Test {
+    using MessageHashUtils for bytes32;
+
     HelperConfig helperConfig;
     MinimalAccount minimalAccount;
     ERC20Mock usdc;
+    SendPackedUserOps sendPackedUserOp;
 
     address randomUser = makeAddr("randomUser");
 
@@ -20,6 +26,7 @@ contract MinimalAccountTest is Test {
         DeployMinimal deployMinimal = new DeployMinimal();
         (helperConfig, minimalAccount) = deployMinimal.deployMinimalAccount();
         usdc = new ERC20Mock();
+        sendPackedUserOp = new SendPackedUserOps();
     }
 
     //USDC Mint
@@ -29,6 +36,7 @@ contract MinimalAccountTest is Test {
     //If success, means the alt-mempool nodes are able to bundle txn and submit
     //This tests - off chain signing to MinimialAccount -> call USDC (mint)
     //This test simulates the entire flow without the alt-mempool nodes
+    // * @notice Testing the flow of Off chain Sign -> Our AA address -> USDC Contract
     function testOwnerCanExecuteCommands() public {
         //Arrange
         assertEq(usdc.balanceOf(address(minimalAccount)), 0);
@@ -56,4 +64,31 @@ contract MinimalAccountTest is Test {
         vm.prank(randomUser);
         minimalAccount.execute(dest, value, functionData);
     }
+
+    /**
+     * @notice Testing the flow of Off chain Sign -> EntryPoint.sol -> Our AA address -> USDC Contract
+     */
+    function testRecoverSignedOp() public {
+        //Arrange
+        assertEq(usdc.balanceOf(address(minimalAccount)), 0);
+        address dest = address(usdc);
+        uint256 value = 0;
+
+        bytes memory functionData = abi.encodeWithSelector(ERC20Mock.mint.selector, address(minimalAccount), AMOUNT); //Holds function call for USDC contract
+        bytes memory executeCallData =
+            abi.encodeWithSelector(MinimalAccount.execute.selector, dest, value, functionData); //Holds function call for our AA contract
+        PackedUserOperation memory packedUserOps =
+            sendPackedUserOp.generateSignedUserOperation(executeCallData, helperConfig.getConfig()); //Create the PackedUserOperation that EntryPoint.sol takes, PackedUserOperation holds the function calls for our AA contract and USDC contract
+
+        //Act
+        bytes32 userOpHash = IEntryPoint(helperConfig.getConfig().entryPoint).getUserOpHash(packedUserOps); //Better to use account-abstraction getUserOpHash(), as if we hash ourselves, then we might do it differntly, as under the hood it hashes by encoding everything except the signature
+        address actualSigner = ECDSA.recover(userOpHash.toEthSignedMessageHash(), packedUserOps.signature); //.toEthSignedMessageHash() to ensure it is in ERC-191 format
+
+        //Assert
+        assertEq(actualSigner, minimalAccount.owner());
+    }
+
+    function testCreationfUserOps() public {}
+
+    function testValidationOfUserOps() public {}
 }
