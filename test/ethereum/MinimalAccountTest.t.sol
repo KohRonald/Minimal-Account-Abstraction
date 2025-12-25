@@ -79,9 +79,9 @@ contract MinimalAccountTest is Test {
             abi.encodeWithSelector(MinimalAccount.execute.selector, dest, value, functionData); //Holds function call for our AA contract
         PackedUserOperation memory packedUserOps =
             sendPackedUserOp.generateSignedUserOperation(executeCallData, helperConfig.getConfig()); //Create the PackedUserOperation that EntryPoint.sol takes, PackedUserOperation holds the function calls for our AA contract and USDC contract
+        bytes32 userOpHash = IEntryPoint(helperConfig.getConfig().entryPoint).getUserOpHash(packedUserOps); //Better to use account-abstraction getUserOpHash(), as if we hash ourselves, then we might do it differntly, as under the hood it hashes by encoding everything except the signature
 
         //Act
-        bytes32 userOpHash = IEntryPoint(helperConfig.getConfig().entryPoint).getUserOpHash(packedUserOps); //Better to use account-abstraction getUserOpHash(), as if we hash ourselves, then we might do it differntly, as under the hood it hashes by encoding everything except the signature
         address actualSigner = ECDSA.recover(userOpHash.toEthSignedMessageHash(), packedUserOps.signature); //.toEthSignedMessageHash() to ensure it is in ERC-191 format
 
         //Assert
@@ -90,5 +90,31 @@ contract MinimalAccountTest is Test {
 
     function testCreationfUserOps() public {}
 
-    function testValidationOfUserOps() public {}
+    function testValidationOfUserOps() public {
+        //1.Sign user ops
+        //2.Call validation
+        //3.Assert the return is correct
+
+        //Arrange
+        assertEq(usdc.balanceOf(address(minimalAccount)), 0);
+        address dest = address(usdc);
+        uint256 value = 0;
+
+        bytes memory functionData = abi.encodeWithSelector(ERC20Mock.mint.selector, address(minimalAccount), AMOUNT);
+        bytes memory executeCallData =
+            abi.encodeWithSelector(MinimalAccount.execute.selector, dest, value, functionData);
+        PackedUserOperation memory packedUserOps =
+            sendPackedUserOp.generateSignedUserOperation(executeCallData, helperConfig.getConfig());
+        bytes32 userOpHash = IEntryPoint(helperConfig.getConfig().entryPoint).getUserOpHash(packedUserOps);
+        uint256 missingAccountFunds = 1e18; //For validation test purpose, the value here does not matter
+
+        //Act
+        vm.prank(helperConfig.getConfig().entryPoint); //validateUserOp can only be called by entrypoint, so we prank as entrypoint
+        uint256 validationData = minimalAccount.validateUserOp(packedUserOps, userOpHash, missingAccountFunds); //Internal function _validateSignature will return 0 for pass, 1 for fail
+
+        //Assert
+        assertEq(validationData, 0);
+    }
+
+    //function testEntryPointCanExecuteCommands() {}
 }

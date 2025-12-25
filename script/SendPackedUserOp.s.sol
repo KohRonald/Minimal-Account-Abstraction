@@ -33,10 +33,19 @@ contract SendPackedUserOps is Script {
 
         //3. Sign the data, and return
         //takes in the private key and the message digest
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(config.account, digest);
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
+        uint256 ANVIL_DEFAULT_KEY = 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80; //Take anvil first address private key
+        if (block.chainid == 31337) {
+            (v, r, s) = vm.sign(ANVIL_DEFAULT_KEY, digest);
+        } else {
+            (v, r, s) = vm.sign(config.account, digest);
+        }
+
         //when we use config.account(the public address) for the private key arg, foundry will check if they have the private key unlocked. If yes, then will use that private key to sign.
         //if no wallets are unlocked, then error will be "vm.sign: no wallets available"
-        //Testing on local anvil chain, will encounter this error
+        //Testing on local anvil chain, will encounter this error, unless there is the if statement to use anvil deafult key as written above
 
         //3a. Insert the signature into the PackedUserOperation struct
         userOp.signature = abi.encodePacked(r, s, v); //Note the order

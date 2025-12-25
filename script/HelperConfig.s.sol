@@ -16,7 +16,8 @@ contract HelperConfig is Script {
     uint256 constant ZKSYNC_SEPOLIA_CHAIN_ID = 300;
     uint256 constant LOCAL_CHAIN_ID = 31337;
     address constant BURNER_WALLET = 0x8C1074Aa2Bb05D632d5C5276b7ea2C21e4975aE6; //TestNet metamask wallet
-    address constant FOUNDRY_DEFAULT_WALLET = 0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38; //Default address used in forge, found in Base.sol
+    // address constant FOUNDRY_DEFAULT_WALLET = 0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38; //Default address used in forge, found in Base.sol
+    address constant ANVIL_DEFAULT_ACCOUNT = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266; //First public address used in Anvil
 
     NetworkConfig public localNetworkConfig;
 
@@ -57,10 +58,13 @@ contract HelperConfig is Script {
 
         //Deploy mock entrypoint contract....
         console2.log("Deploying Mocks");
-        vm.startBroadcast(FOUNDRY_DEFAULT_WALLET);
+        vm.startBroadcast(ANVIL_DEFAULT_ACCOUNT);
         EntryPoint entryPoint = new EntryPoint();
         vm.stopBroadcast();
 
-        return NetworkConfig({entryPoint: address(entryPoint), account: FOUNDRY_DEFAULT_WALLET});
+        //We use ANVIL_DEFAULT_ACCOUNT instead of FOUNDRY_DEFAULT_WALLET as we can only test signature signing on local chain with ANVIL private key
+        localNetworkConfig = NetworkConfig({entryPoint: address(entryPoint), account: ANVIL_DEFAULT_ACCOUNT});
+
+        return localNetworkConfig;
     }
 }

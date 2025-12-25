@@ -131,6 +131,7 @@ contract MinimalAccount is IAccount, Ownable {
         bytes32 ethSignedMessageHash = MessageHashUtils.toEthSignedMessageHash(userOpHash);
         address signer = ECDSA.recover(ethSignedMessageHash, userOp.signature); //this will return who did the txn signing
 
+        //Return values referenced from IAccount contract, validateUserOp()
         if (signer != owner()) return SIG_VALIDATION_FAILED; //returns 1, constant in AA import
         return SIG_VALIDATION_SUCCESS; //returns 0, constant in AA import
     }
