@@ -90,6 +90,9 @@ contract MinimalAccountTest is Test {
 
     function testCreationfUserOps() public {}
 
+    /**
+     * @notice Tests the creation and signing of a user operation and that the userOp is succesfully validated when processed at the EntryPoint contract
+     */
     function testValidationOfUserOps() public {
         //1.Sign user ops
         //2.Call validation
