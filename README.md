@@ -58,3 +58,9 @@
     - EntryPoint.sol has optional "addons"
       - Signature Aggregator: Defines a group of signatures that needs to be aggregated 
       - Pay Master: Account Abstraction smart contract can be coded to have someone else pay the gas for the txn
+  
+### Advanced Debug
+- To view low-level opcode for debugging:
+  - forge test --debug --mt (test name)
+  - Shift G -> To reach line where code fails
+  - Go backwards to debug the lines pior to failure 

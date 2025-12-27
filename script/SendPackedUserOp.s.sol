@@ -15,14 +15,14 @@ contract SendPackedUserOps is Script {
     /**
      * @return PackedUserOperation - In memory as it is a struct
      */
-    function generateSignedUserOperation(bytes memory callData, HelperConfig.NetworkConfig memory config)
-        public
-        view
-        returns (PackedUserOperation memory)
-    {
+    function generateSignedUserOperation(
+        bytes memory callData,
+        HelperConfig.NetworkConfig memory config,
+        address minimalAccount
+    ) public view returns (PackedUserOperation memory) {
         //1. Generate unsigned Data
-        uint256 nonce = vm.getNonce(config.account); //use vm cheatcode to get nonce
-        PackedUserOperation memory userOp = _generateUnsignedUserOperations(callData, config.account, nonce);
+        uint256 nonce = vm.getNonce(minimalAccount) - 1; //use vm cheatcode to get nonce, -1 as the entryPoint contract also has gets nonce, and to prevent clash we minus 1 from here, where this nonce is recieed first before entryPoint contract gets theirs
+        PackedUserOperation memory userOp = _generateUnsignedUserOperations(callData, minimalAccount, nonce);
 
         //2. Get User Operations hash
         bytes32 userOpHash = IEntryPoint(config.entryPoint).getUserOpHash(userOp);
