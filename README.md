@@ -3,6 +3,9 @@
 2. Create a basic Account Abstraction (AA) on zkSync
 3. Deploy, and send a userOp / txn through them
     - Only will send a AA txn to zkSync
+- AA allows us to define anything can sign a txn, not just a private key, can be google auth, group of users, etc.
+- The Entrypoint.sol contract will call the their handleOps() where the parameters will take the userOps
+  - UserOps will hold the data such as the AA account address, and the function that is to be executed
 
 ## Account Abstraction
 - Known as EIP-4337
