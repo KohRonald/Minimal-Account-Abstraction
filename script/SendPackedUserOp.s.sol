@@ -6,11 +6,30 @@ import {PackedUserOperation} from "@account-abstraction/contracts/interfaces/Pac
 import {HelperConfig} from "script/HelperConfig.s.sol";
 import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
 import {MessageHashUtils} from "@openzeppelin-contracts/contracts/utils/cryptography/MessageHashUtils.sol";
+import {IERC20} from "@openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import {MinimalAccount} from "src/ethereum/MinimalAccount.sol";
 
 contract SendPackedUserOps is Script {
     using MessageHashUtils for bytes32;
+    address constant BURNER_WALLET = 0x8C1074Aa2Bb05D632d5C5276b7ea2C21e4975aE6; //TestNet metamask wallet
+    address minimalAccount = 0x0000000000000000000000000000000000000000; //This should be the contract of the deployed minimalAccount
 
-    function run() public {}
+    function run() public {
+        HelperConfig helperConfig = new HelperConfig();
+        address dest_arbitrum_usdc = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831; //L1 USDC end point address
+        uint256 value = 0;
+        bytes memory functionData = abi.encodeWithSelector(IERC20.approve.selector, BURNER_WALLET, 1e18);
+        bytes memory executeCalldata =
+            abi.encodeWithSelector(MinimalAccount.execute.selector, dest, value, functionData);
+        PackedUserOperation memory userOp =
+            generateSignedUserOperation(executeCalldata, helperConfig.getConfig(), minimalAccount);
+        PackedUserOperation[] memory ops = new PackedUserOperation[](1);
+        ops[0] = userOp;
+
+        vm.startBroadcast();
+        IEntryPoint(helperConfig.getConfig().entryPoint).handleOps(ops, payable(helperConfig.getConfig().account));
+        vm.stopBroadcast();
+    }
 
     /**
      * @return PackedUserOperation - In memory as it is a struct
