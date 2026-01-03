@@ -10,7 +10,7 @@
 ## Account Abstraction
 - Known as EIP-4337
 - Lets wallets replace private-key–only ownership with programmable verification logic, so accounts can be controlled using alternative authentication methods (like OAuth, passkeys, or multisig) instead of a single EOA key.
-- EIP-4337 is a framework that everyone agrees upon when sending user operations
+- EIP-4337 is a framework that everyone agrees upon when sending user operations.
 
 #### 2 places where account abstraction exists:
 1. Offical Account Abstraction contract deployed on the Ethereum Mainnet on March 1st 2023
