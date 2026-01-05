@@ -67,3 +67,12 @@
   - forge test --debug --mt (test name)
   - Shift G -> To reach line where code fails
   - Go backwards to debug the lines pior to failure 
+
+### External Packages
+- eth-infinitism/account-abstraction
+  - https://github.com/eth-infinitism/account-abstraction
+- OpenZeppelin/openzeppelin-contracts
+  - https://github.com/OpenZeppelin/openzeppelin-contracts
+- Cyfrin/foundry-era-contracts
+  - https://github.com/Cyfrin/foundry-era-contracts
+  - Used for ZKSync
