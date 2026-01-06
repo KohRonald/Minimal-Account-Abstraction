@@ -61,6 +61,32 @@
     - EntryPoint.sol has optional "addons"
       - Signature Aggregator: Defines a group of signatures that needs to be aggregated 
       - Pay Master: Account Abstraction smart contract can be coded to have someone else pay the gas for the txn
+
+### zkSync AA
+
+#### System Contracts
+- They are Smart Contracts deployed onto zkSync by deafult
+- Their job is for deployment of smart contracts etc. onto zkSync
+- https://docs.zksync.io/zksync-protocol/era-vm/contracts/system-contracts
+
+#### Lifecycle of a type 113 (0x71) transaction (zkSync transaction lifecycle)
+- When a AA txn is called, there is 2 phases in the lifecycle process;
+ - When a type 113 txn is executed it is re-routed to the bootloader system contract
+ - msg.sender will always be the bootloader contract (think of it as a super admin)
+ 
+- Phase 1 Validation
+  1. The user sends the txn to the "zkSync API client" (sort of a "light node")
+  2. The zkSync API client checks to see the nounce is unique by querying the NounceHolder system contract
+     1. 2a. System contracts are smart contracts deployed on zkSync by default
+  3. The zkSync API client calls validateTransaction, which MUST update the nouce
+  4. The zkSync API client checks that the nonce is updated, if not then the whole txn will revert
+  5. The zkSync API client calls payForTransaction, or prepareForPaymaster & validateAndPayForPaymasterTransaction
+  6.  The zkSync API client verifies that the bootloader gets paid
+ 
+- Phase 2 Execution
+  1. The zkSync API client passes the validated transaction to the main node/sequencer
+  2. The main node calls executeTransaction()
+  3. If a paymaster was used, the postTransaction is called
   
 ### Advanced Debug
 - To view low-level opcode for debugging:
