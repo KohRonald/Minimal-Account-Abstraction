@@ -1,13 +1,24 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {IAccount} from "@foundry-era-contracts/system-contracts/contracts/interfaces/IAccount.sol";
-import {Transaction} from "@foundry-era-contracts/system-contracts/contracts/libraries/MemoryTransactionHelper.sol";
+import {
+    IAccount,
+    ACCOUNT_VALIDATION_SUCCESS_MAGIC
+} from "@foundry-era-contracts/system-contracts/contracts/interfaces/IAccount.sol";
+import {
+    Transaction,
+    MemoryTransactionHelper
+} from "@foundry-era-contracts/system-contracts/contracts/libraries/MemoryTransactionHelper.sol";
 import {
     SystemContractsCaller
 } from "@foundry-era-contracts/system-contracts/contracts/libraries/SystemContractsCaller.sol";
-import {NONCE_HOLDER_SYSTEM_CONTRACT} from "@foundry-era-contracts/system-contracts/contracts/Constants.sol";
+import {
+    NONCE_HOLDER_SYSTEM_CONTRACT,
+    BOOTLOADER_FORMAL_ADDRESS
+} from "@foundry-era-contracts/system-contracts/contracts/Constants.sol";
 import {INouceHolder} from "@foundry-era-contracts/system-contracts/contracts/interfaces/INonceHolder.sol";
+import {ECDSA} from "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
+import {Ownable} from "@openzeppelin-contracts/contracts/access/Ownable.sol";
 
 /**
  * @title Minimal Account for ZK Sync
@@ -37,36 +48,88 @@ import {INouceHolder} from "@foundry-era-contracts/system-contracts/contracts/in
  *             2. The main node calls executeTransaction()
  *             3. If a paymaster was used, the postTransaction is called
  */
-contract ZkMinimalAccount is IAccount {
+contract ZkMinimalAccount is IAccount, Ownable {
+    using MemoryTransactionHelper for Transaction;
+
+    error ZkMinimalAccount__NotEnoughBalance();
+    error ZkMinimalAccount__NotFromBootLoader();
+
+    //////////////
+    // MODIFIER //
+    /////////////
+    modifier requireFromBootLoader() {
+        if (msg.sender != BOOTLOADER_FORMAL_ADDRESS) {
+            revert ZkMinimalAccount__NotFromBootLoader();
+        }
+        _;
+    }
+
+    constructor() Ownable(msg.sender) {}
+
     ////////////////////////
     // EXTERNAL FUNCTIONS //
     ////////////////////////
 
     /**
+     * @notice zkSync allows for control over nonce, while eth does not
+     * @notice Only Bootloader can call this function to update our nonce
      * @notice Must increment nouce
      * @notice must validate transaction (check the owner signed the txn)
      * @notice Check to see if we have enough money in our account to pay for the txn
-     * @param _txHash .
-     * @param _suggestedSignedHash .
+     * @param _txHash Ignore for now
+     * @param _suggestedSignedHash Ignore for now
      * @param _transaction .
+     * @return magic The indicator on the state of validateTransaction, similar to boolean true/false
      */
     // Similar to validateUserOp() in ETH AA
-    function validateTransaction(bytes32 _txHash, bytes32 _suggestedSignedHash, Transaction memory _transaction)
+    function validateTransaction(
+        bytes32,
+        /*_txHash*/
+        bytes32,
+        /*_suggestedSignedHash*/
+        Transaction memory _transaction
+    )
         external
         payable
+        requireFromBootLoader
         returns (bytes4 magic)
     {
-        // Call nouceholder
+        // Call nonceholder
         // Increment nouce
 
-        //This does the system call to do the above
+        //This does the system contract call to do the above
         //We ignore the return data
+        //NONCE_HOLDER_SYSTEM_CONTRACT controls all the nounces
+        //NONCE_HOLDER_SYSTEM_CONTRACT is the address
+        //INonceHolder is the interface of NONCE_HOLDER_SYSTEM_CONTRACT
         SystemContractsCaller.systemCallWithPropagatedRevert(
-            uint32(gasleft()),
+            uint32(gasleft()), //We return the remaining gas of the contract call
             address(NONCE_HOLDER_SYSTEM_CONTRACT), //This is the nonceholder system contract
             0,
             abi.encodeCall(INonceHolder.incrementMinNonceIfEquals, (_transaction.nonce)) //This calls the nonce increment function found in nonceholder contract to increment the current _transaction nonce
         );
+
+        // Check for fee to pay
+        // MemoryTransactionHelper libary helper function will help calculate the fee
+        uint256 totalRequiredBalance = _transaction.totalRequiredBalance();
+        if (totalRequiredBalance > address(this).balance) {
+            revert ZkMinimalAccount__NotEnoughBalance();
+        }
+
+        // Check the signature
+        // MemoryTransactionHelper libary helper function will help calculate the suggested signed hash of the transaction
+        bytes32 txHash = _transaction.encodeHash();
+        address signer = ECDSA.recover(txHash, _transaction.signature);
+        bool isValidSigner = signer == owner();
+
+        //Return the "magic" number
+        if (isValidSigner) {
+            magic = ACCOUNT_VALIDATION_SUCCESS_MAGIC; //equivalent of saying True
+        } else {
+            magic = bytes4(0); //This is 0x00000000, equivalent of saying False
+        }
+
+        return magic;
     }
 
     // Similar to execute() in ETH AA
