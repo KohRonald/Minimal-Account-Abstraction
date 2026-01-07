@@ -63,6 +63,9 @@
       - Pay Master: Account Abstraction smart contract can be coded to have someone else pay the gas for the txn
 
 ### zkSync AA
+- To ensure we are working with foundry's zkSync environment (Because they dont use same evm and opcode as ETH)
+  - foundryup-zksync
+  - forge build --zksync
 
 #### System Contracts
 - They are Smart Contracts deployed onto zkSync by deafult

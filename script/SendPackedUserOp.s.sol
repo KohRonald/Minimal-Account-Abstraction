@@ -15,20 +15,20 @@ contract SendPackedUserOps is Script {
     address minimalAccount = 0x0000000000000000000000000000000000000000; //This should be the contract of the deployed minimalAccount
 
     function run() public {
-        HelperConfig helperConfig = new HelperConfig();
-        address dest_arbitrum_usdc = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831; //L1 USDC end point address
-        uint256 value = 0;
-        bytes memory functionData = abi.encodeWithSelector(IERC20.approve.selector, BURNER_WALLET, 1e18);
-        bytes memory executeCalldata =
-            abi.encodeWithSelector(MinimalAccount.execute.selector, dest, value, functionData);
-        PackedUserOperation memory userOp =
-            generateSignedUserOperation(executeCalldata, helperConfig.getConfig(), minimalAccount);
-        PackedUserOperation[] memory ops = new PackedUserOperation[](1);
-        ops[0] = userOp;
+        // HelperConfig helperConfig = new HelperConfig();
+        // address dest_arbitrum_usdc = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831; //L1 USDC end point address
+        // uint256 value = 0;
+        // bytes memory functionData = abi.encodeWithSelector(IERC20.approve.selector, BURNER_WALLET, 1e18);
+        // bytes memory executeCalldata =
+        //     abi.encodeWithSelector(MinimalAccount.execute.selector, dest, value, functionData);
+        // PackedUserOperation memory userOp =
+        //     generateSignedUserOperation(executeCalldata, helperConfig.getConfig(), minimalAccount);
+        // PackedUserOperation[] memory ops = new PackedUserOperation[](1);
+        // ops[0] = userOp;
 
-        vm.startBroadcast();
-        IEntryPoint(helperConfig.getConfig().entryPoint).handleOps(ops, payable(helperConfig.getConfig().account));
-        vm.stopBroadcast();
+        // vm.startBroadcast();
+        // IEntryPoint(helperConfig.getConfig().entryPoint).handleOps(ops, payable(helperConfig.getConfig().account));
+        // vm.stopBroadcast();
     }
 
     /**
