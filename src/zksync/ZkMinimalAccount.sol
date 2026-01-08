@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+// zkSync Era Imports
 import {
     IAccount,
     ACCOUNT_VALIDATION_SUCCESS_MAGIC
@@ -14,9 +15,14 @@ import {
 } from "@foundry-era-contracts/system-contracts/contracts/libraries/SystemContractsCaller.sol";
 import {
     NONCE_HOLDER_SYSTEM_CONTRACT,
-    BOOTLOADER_FORMAL_ADDRESS
+    BOOTLOADER_FORMAL_ADDRESS,
+    DEPLOYER_SYSTEM_CONTRACT
 } from "@foundry-era-contracts/system-contracts/contracts/Constants.sol";
 import {INouceHolder} from "@foundry-era-contracts/system-contracts/contracts/interfaces/INonceHolder.sol";
+import {Utils} from "@foundry-era-contracts/system-contracts/contracts/libraries/Utils.sol";
+
+//OZ Imports
+import {MessageHashUtils} from "@openzeppelin-contracts/contracts/utils/cryptography/MessageHashUtils.sol";
 import {ECDSA} from "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {Ownable} from "@openzeppelin-contracts/contracts/access/Ownable.sol";
 
@@ -53,6 +59,8 @@ contract ZkMinimalAccount is IAccount, Ownable {
 
     error ZkMinimalAccount__NotEnoughBalance();
     error ZkMinimalAccount__NotFromBootLoader();
+    error ZkMinimalAccount__ExecutionFailed();
+    error ZkMinimalAccount__NotFromBootLoaderOrOwner();
 
     //////////////
     // MODIFIER //
@@ -60,6 +68,13 @@ contract ZkMinimalAccount is IAccount, Ownable {
     modifier requireFromBootLoader() {
         if (msg.sender != BOOTLOADER_FORMAL_ADDRESS) {
             revert ZkMinimalAccount__NotFromBootLoader();
+        }
+        _;
+    }
+
+    modifier requireFromBootLoaderOrOwner() {
+        if (msg.sender != BOOTLOADER_FORMAL_ADDRESS && msg.sender != owner()) {
+            revert ZkMinimalAccount__NotFromBootLoaderOrOwner();
         }
         _;
     }
@@ -134,9 +149,39 @@ contract ZkMinimalAccount is IAccount, Ownable {
 
     // Similar to execute() in ETH AA
     // Function access: Only the owner/bootloader system contract is able to call this
-    function executeTransaction(bytes32 _txHash, bytes32 _suggestedSignedHash, Transaction memory _transaction)
+    // This function is called by the sequencer after validateTransaction() passed
+    function executeTransaction(
+        bytes32,
+        /*_txHash*/
+        bytes32,
+        /*_suggestedSignedHash*/
+        Transaction memory _transaction
+    )
         external
-        payable {}
+        payable
+        requireFromBootLoaderOrOwner
+    {
+        address to = address(uint160(_transaction.to)); //addresses are uint160, 'to' value is a uint256, so we cast it
+        uint128 value = Utils.safeCastToU128(_transaction.value); //cast to uint128, as system contract call takes uint128
+        bytes memory data = _transaction.data;
+
+        //If deploying a contract, use the SystemContractsCaller library, as contract deployment calls system contracts to faciliate deployments
+        if (to == address(DEPLOYER_SYSTEM_CONTRACT)) {
+            uint32 gas = Utils.safeCastToU32(gasleft());
+            SystemContractsCaller.systemCallWithPropagatedRevert(gas, to, value, data);
+        } else {
+            //Otherwise if not deploying a contract
+            bool success;
+            // Making a call in assembly which is similar to:
+            //(bool success, bytes memory result) = dest.call{value: value}(functionData);
+            assembly {
+                success := call(gas(), to, value, add(data, 0x20), mload(data), 0, 0)
+            }
+            if (!success) {
+                revert ZkMinimalAccount__ExecutionFailed();
+            }
+        }
+    }
 
     // Allows another user to excute a txn that is validated by the user beforehand
     // You sign a txn, send the signed txn to a friend, they can send it by calling this function
