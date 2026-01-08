@@ -5,26 +5,26 @@ pragma solidity ^0.8.24;
 import {
     IAccount,
     ACCOUNT_VALIDATION_SUCCESS_MAGIC
-} from "@foundry-era-contracts/system-contracts/contracts/interfaces/IAccount.sol";
+} from "lib/foundry-era-contracts/src/system-contracts/contracts/interfaces/IAccount.sol";
 import {
     Transaction,
     MemoryTransactionHelper
-} from "@foundry-era-contracts/system-contracts/contracts/libraries/MemoryTransactionHelper.sol";
+} from "lib/foundry-era-contracts/src/system-contracts/contracts/libraries/MemoryTransactionHelper.sol";
 import {
     SystemContractsCaller
-} from "@foundry-era-contracts/system-contracts/contracts/libraries/SystemContractsCaller.sol";
+} from "lib/foundry-era-contracts/src/system-contracts/contracts/libraries/SystemContractsCaller.sol";
 import {
     NONCE_HOLDER_SYSTEM_CONTRACT,
     BOOTLOADER_FORMAL_ADDRESS,
     DEPLOYER_SYSTEM_CONTRACT
-} from "@foundry-era-contracts/system-contracts/contracts/Constants.sol";
-import {INouceHolder} from "@foundry-era-contracts/system-contracts/contracts/interfaces/INonceHolder.sol";
-import {Utils} from "@foundry-era-contracts/system-contracts/contracts/libraries/Utils.sol";
+} from "lib/foundry-era-contracts/src/system-contracts/contracts/Constants.sol";
+import {INonceHolder} from "lib/foundry-era-contracts/src/system-contracts/contracts/interfaces/INonceHolder.sol";
+import {Utils} from "lib/foundry-era-contracts/src/system-contracts/contracts/libraries/Utils.sol";
 
 //OZ Imports
-import {MessageHashUtils} from "@openzeppelin-contracts/contracts/utils/cryptography/MessageHashUtils.sol";
-import {ECDSA} from "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
-import {Ownable} from "@openzeppelin-contracts/contracts/access/Ownable.sol";
+import {MessageHashUtils} from "lib/openzeppelin-contracts/contracts/utils/cryptography/MessageHashUtils.sol";
+import {ECDSA} from "lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
+import {Ownable} from "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 
 /**
  * @title Minimal Account for ZK Sync
@@ -61,6 +61,7 @@ contract ZkMinimalAccount is IAccount, Ownable {
     error ZkMinimalAccount__NotFromBootLoader();
     error ZkMinimalAccount__ExecutionFailed();
     error ZkMinimalAccount__NotFromBootLoaderOrOwner();
+    error ZkMinimalAccount__FailedToPay();
 
     //////////////
     // MODIFIER //
@@ -81,6 +82,8 @@ contract ZkMinimalAccount is IAccount, Ownable {
 
     constructor() Ownable(msg.sender) {}
 
+    receive() external payable {}
+
     ////////////////////////
     // EXTERNAL FUNCTIONS //
     ////////////////////////
@@ -91,8 +94,6 @@ contract ZkMinimalAccount is IAccount, Ownable {
      * @notice Must increment nouce
      * @notice must validate transaction (check the owner signed the txn)
      * @notice Check to see if we have enough money in our account to pay for the txn
-     * @param _txHash Ignore for now
-     * @param _suggestedSignedHash Ignore for now
      * @param _transaction .
      * @return magic The indicator on the state of validateTransaction, similar to boolean true/false
      */
@@ -109,6 +110,63 @@ contract ZkMinimalAccount is IAccount, Ownable {
         requireFromBootLoader
         returns (bytes4 magic)
     {
+        return (_validateTransaction(_transaction));
+    }
+
+    // Similar to execute() in ETH AA
+    // Function access: Only the owner/bootloader system contract is able to call this
+    // This function is called by the sequencer after validateTransaction() passed
+    function executeTransaction(
+        bytes32,
+        /*_txHash*/
+        bytes32,
+        /*_suggestedSignedHash*/
+        Transaction memory _transaction
+    )
+        external
+        payable
+        requireFromBootLoaderOrOwner
+    {
+        _executeTransaction(_transaction);
+    }
+
+    // Allows another user to excute a txn that is validated by the user beforehand
+    // You sign a txn, send the signed txn to a friend, they can send it by calling this function
+    // Function access: Other users can call this
+    function executeTransactionFromOutside(Transaction memory _transaction) external payable {
+        _validateTransaction(_transaction);
+        _executeTransaction(_transaction);
+    }
+
+    // Similar to _payPrefund() in ETH AA
+    // Actual payment is handled here
+    function payForTransaction(
+        bytes32,
+        /*_txHash*/
+        bytes32,
+        /*_suggestedSignedHash*/
+        Transaction memory _transaction
+    )
+        external
+        payable
+    {
+        bool success = _transaction.payToTheBootloader();
+        if (!success) {
+            revert ZkMinimalAccount__FailedToPay();
+        }
+    }
+
+    // This function gets called first before payForTransaction(), if there is a paymaster setup
+    // This project will not use paymaster, so no function is empty
+    function prepareForPaymaster(bytes32 _txHash, bytes32 _possibleSignedHash, Transaction memory _transaction)
+        external
+        payable {}
+
+    ////////////////////////
+    // INTERNAL FUNCTIONS //
+    ////////////////////////
+
+    function _validateTransaction(Transaction memory _transaction) internal returns (bytes4 magic) {
         // Call nonceholder
         // Increment nouce
 
@@ -147,20 +205,7 @@ contract ZkMinimalAccount is IAccount, Ownable {
         return magic;
     }
 
-    // Similar to execute() in ETH AA
-    // Function access: Only the owner/bootloader system contract is able to call this
-    // This function is called by the sequencer after validateTransaction() passed
-    function executeTransaction(
-        bytes32,
-        /*_txHash*/
-        bytes32,
-        /*_suggestedSignedHash*/
-        Transaction memory _transaction
-    )
-        external
-        payable
-        requireFromBootLoaderOrOwner
-    {
+    function _executeTransaction(Transaction memory _transaction) internal {
         address to = address(uint160(_transaction.to)); //addresses are uint160, 'to' value is a uint256, so we cast it
         uint128 value = Utils.safeCastToU128(_transaction.value); //cast to uint128, as system contract call takes uint128
         bytes memory data = _transaction.data;
@@ -182,23 +227,4 @@ contract ZkMinimalAccount is IAccount, Ownable {
             }
         }
     }
-
-    // Allows another user to excute a txn that is validated by the user beforehand
-    // You sign a txn, send the signed txn to a friend, they can send it by calling this function
-    // Function access: Other users can call this
-    function executeTransactionFromOutside(Transaction memory _transaction) external payable {}
-
-    // Similar to _payPrefund() in ETH AA
-    function payForTransaction(bytes32 _txHash, bytes32 _suggestedSignedHash, Transaction memory _transaction)
-        external
-        payable {}
-
-    // This function gets called first before payForTransaction(), if there is a paymaster setup
-    function prepareForPaymaster(bytes32 _txHash, bytes32 _possibleSignedHash, Transaction memory _transaction)
-        external
-        payable {}
-
-    ////////////////////////
-    // INTERNAL FUNCTIONS //
-    ////////////////////////
 }
