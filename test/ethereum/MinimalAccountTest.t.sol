@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Test} from "forge-std/Test.sol";
+import {Test} from "lib/forge-std/src/Test.sol";
 import {MinimalAccount} from "src/ethereum/MinimalAccount.sol";
 import {DeployMinimal} from "script/DeployMinimal.s.sol";
 import {HelperConfig} from "script/HelperConfig.s.sol";
-import {ERC20Mock} from "@openzeppelin-contracts/contracts/mocks/token/ERC20Mock.sol";
+import {ERC20Mock} from "lib/openzeppelin-contracts/contracts/mocks/token/ERC20Mock.sol";
 import {SendPackedUserOps, PackedUserOperation, IEntryPoint} from "script/SendPackedUserOp.s.sol";
-import {ECDSA} from "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
-import {MessageHashUtils} from "@openzeppelin-contracts/contracts/utils/cryptography/MessageHashUtils.sol";
+import {ECDSA} from "lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
+import {MessageHashUtils} from "lib/openzeppelin-contracts/contracts/utils/cryptography/MessageHashUtils.sol";
 
 contract MinimalAccountTest is Test {
     using MessageHashUtils for bytes32;
