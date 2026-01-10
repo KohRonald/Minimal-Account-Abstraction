@@ -8,5 +8,7 @@ remappings = [
     '@openzeppelin-contracts/contracts/=lib/openzeppelin-contracts/contracts/',
     '@foundry-era-contracts/=lib/foundry-era-contracts/src/',
 ]
+optimizer = true #Enables the Solidity compiler's built-in optimizer, for reducing the gas costs 
+via-ir = true #For zkSync tests
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

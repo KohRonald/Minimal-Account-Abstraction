@@ -67,6 +67,14 @@
   - foundryup-zksync
   - forge build --zksync
 
+##### zkSync Test
+- Tests requires --via-ir = true, in foundry.toml
+- --via-ir stands for: Intermediate Representation
+  - It tells the compiler to compile in Yul/assembly and then to EVM/REVM
+  
+- Tests that are calling sytem contracts requires --system-mode=true flag
+  - forge test --mt testZkValidateTransaction --zksync --system-mode=true
+
 #### System Contracts
 - They are Smart Contracts deployed onto zkSync by deafult
 - Their job is for deployment of smart contracts etc. onto zkSync
